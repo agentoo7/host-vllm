@@ -11,7 +11,7 @@ services:
               device_ids: [ '0', '1' ]
               capabilities: [ gpu ]
     env_file:
-      - .env
+      - ../../.env
     environment:
       - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
       - CUDA_VISIBLE_DEVICES=0,1
@@ -21,10 +21,10 @@ services:
       timeout: 5s
       retries: 20
     ports:
-      - "6004:6000"
+      - "${port}:6000"
     volumes:
       - "~/.cache/huggingface:/root/.cache/huggingface"
     ipc: "host"
 
     entrypoint: vllm
-    command: serve "microsoft/codebert-base" --task embed --dtype auto --port 6000 --tensor-parallel-size 2 --gpu-memory-utilization 0.95 --max-num-batched-tokens 2048  --max_num_seqs 2 --api-key embed-apikey
+    command: serve "microsoft/codebert-base" --task embed --dtype auto --port 6000 --tensor-parallel-size 2 --gpu-memory-utilization=${gpu_memory_utilization} --max-num-batched-tokens 2048  --max_num_seqs 2 --api-key embed-apikey

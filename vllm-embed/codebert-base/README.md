@@ -1,5 +1,8 @@
+# Run test api
+
+```bash
 curl -X 'POST' \
-  'http://192.168.59.54:6004/v1/embeddings' \
+  'http://192.168.59.54:6003/v1/embeddings' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer embed-apikey" \
@@ -17,5 +20,7 @@ curl -X 'POST' \
   "priority": 0,
   "additionalProp1": {}
 }'
+
+```
 
 
