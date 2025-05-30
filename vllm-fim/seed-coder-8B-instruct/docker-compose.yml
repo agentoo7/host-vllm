@@ -1,0 +1,32 @@
+services:
+  fim-model:
+    image: vllm/vllm-openai:latest
+    shm_size: '64gb'
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0', '1' ]
+              capabilities: [ gpu ]
+    env_file:
+      - .env
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}      
+      - CUDA_VISIBLE_DEVICES=0,1
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer fim-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    restart: always
+    ports:
+      - "6002:6000"
+    volumes:
+      - "~/.cache/huggingface:/root/.cache/huggingface"
+      - "./examples/template.jinja:/root/template.jinja"
+    ipc: "host" # 16384:  max_model_len (8192) * 2 
+    entrypoint: vllm
+    #command: serve "bigcode/starcoder" --dtype auto --port 6001 --tensor-parallel-size 2 --gpu-memory-utilization 0.50 --max-num-batched-tokens 16384 --max_num_seqs 2 --api-key fim-apikey
+    command: serve "ByteDance-Seed/Seed-Coder-8B-Instruct"  --chat-template /root/template.jinja --dtype bfloat16 --port 6000 --tensor-parallel-size 2 --gpu-memory-utilization 0.25 --max-num-batched-tokens 2048 --max_num_seqs 2 --api-key fim-apikey

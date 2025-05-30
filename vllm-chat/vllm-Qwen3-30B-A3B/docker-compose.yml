@@ -1,0 +1,31 @@
+services:
+  chat-model:
+    image: vllm/vllm-openai:v0.8.5.post1
+    shm_size: '64gb'
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0', '1' ]
+              capabilities: [ gpu ]
+    env_file:
+      - .env
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      - CUDA_VISIBLE_DEVICES=0,1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer chat-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "6001:6000"
+    volumes:
+      - "~/.cache/huggingface:/root/.cache/huggingface"
+    ipc: "host"
+
+    entrypoint: vllm
+    command: serve "Qwen/Qwen3-30B-A3B" --enable-auto-tool-choice  --trust-remote-code --tool-call-parser hermes --chat-template examples/tool_chat_template_hermes.jinja --device cuda --gpu-memory-utilization 0.75 --dtype auto --port 6000 --tensor-parallel-size 2 --max_num_seqs 2  --disable-custom-all-reduce --max-model-len 32768

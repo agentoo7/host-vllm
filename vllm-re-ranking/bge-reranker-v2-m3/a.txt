@@ -1,0 +1,18 @@
+curl -X 'POST' \
+  'http://192.168.59.54:6003/v1/score' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer re-ranking-apikey" \
+  -d '{
+  "model": "BAAI/bge-reranker-v2-m3",
+  "text_1": [
+    "a"
+  ],
+  "text_2": [
+    "a", "b"
+  ],
+  "truncate_prompt_tokens": 1,
+  "additional_data": "string",
+  "priority": 0,
+  "additionalProp1": {}
+}'

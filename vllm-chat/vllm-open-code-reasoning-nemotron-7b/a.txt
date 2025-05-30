@@ -1,0 +1,26 @@
+curl http://192.168.59.54:6000/v1/completions \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer chat-apikey" \
+    -d '{
+        "model": "nvidia/OpenCodeReasoning-Nemotron-7B",
+        "prompt": "San Francisco is a",
+        "max_tokens": 100,
+        "temperature": 0
+    }'
+
+
+
+curl http://192.168.59.54:6005/v1/chat/completions  \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer chat-apikey" \
+     -d '{
+         "model": "nvidia/OpenCodeReasoning-Nemotron-7B",
+         "messages": [
+             {"role": "system", "content": "You are a helpful assistant."},
+             {"role": "user", "content": "What is the capital of France?"},
+             {"role": "assistant", "content": "The capital of France is Paris."},
+             {"role": "user", "content": "Can you tell me more about Paris?"}
+         ],
+         "temperature": 0.7,
+         "max_tokens": 100
+     }'
