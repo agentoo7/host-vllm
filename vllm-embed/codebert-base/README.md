@@ -2,7 +2,7 @@
 
 ```bash
 curl -X 'POST' \
-  'http://192.168.59.54:6003/v1/embeddings' \
+  'http://0.0.0.0:6003/v1/embeddings' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer embed-apikey" \

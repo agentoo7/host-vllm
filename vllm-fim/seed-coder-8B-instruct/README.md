@@ -1,7 +1,7 @@
 # Run test api
 
 ```bash
-curl http://192.168.59.54:6002/v1/completions \
+curl http://0.0.0.0:6002/v1/completions \
   -X POST \
   -H "Authorization: Bearer fim-apikey" \
   -H "Content-Type: application/json" \

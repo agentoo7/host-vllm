@@ -1,7 +1,7 @@
 # Run test api
 
 ```bash
-curl http://192.168.59.54:6001/v1/chat/completions  \
+curl http://0.0.0.0:6001/v1/chat/completions  \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer chat-apikey" \
      -d '{
@@ -17,7 +17,7 @@ curl http://192.168.59.54:6001/v1/chat/completions  \
      }'
 
 
-curl http://192.168.59.54:6001/v1/chat/completions  \
+curl http://0.0.0.0:6001/v1/chat/completions  \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer chat-apikey" \
      -d '{
