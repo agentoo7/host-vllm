@@ -5,18 +5,18 @@ source .env
 
 # ******* CHAT ***************
 
-# gpu_memory_utilization=0.7 \
-# HUGGING_FACE_HUB_TOKEN=$HUGGING_FACE_HUB_TOKEN \
-# port=6001 \
-# docker compose -f "vllm-chat/vllm-Qwen3-30B-A3B/docker-compose.yml" up -d
+gpu_memory_utilization=0.8 \
+HUGGING_FACE_HUB_TOKEN=$HUGGING_FACE_HUB_TOKEN \
+port=6001 \
+docker compose -f "vllm-chat/vllm-Qwen3-30B-A3B/docker-compose.yml" up -d
 
 
 #******* FIM ***************
 
-# gpu_memory_utilization=0.965 \
+# gpu_memory_utilization=0.3 \
 # HUGGING_FACE_HUB_TOKEN=$HUGGING_FACE_HUB_TOKEN \
 # port=6002 \
-# docker compose -f "vllm-fim/seed-coder-8B-instruct/docker-compose.yml" up -d
+# docker compose -f "vllm-fim/starcoder2-7b/docker-compose.yml" up -d
 #-------------------------------
 
 # ******* EMBED ***************
@@ -28,10 +28,10 @@ source .env
 
 
 # ******* RE_RANKING ***************
-gpu_memory_utilization=0.99 \
-port=6004 \
-HUGGING_FACE_HUB_TOKEN=$HUGGING_FACE_HUB_TOKEN \
-docker compose -f "vllm-re-ranking/bge-reranker-v2-m3/docker-compose.yml" up -d
+# gpu_memory_utilization=0.99 \
+# port=6004 \
+# HUGGING_FACE_HUB_TOKEN=$HUGGING_FACE_HUB_TOKEN \
+# docker compose -f "vllm-re-ranking/bge-reranker-v2-m3/docker-compose.yml" up -d
 
 
 #**** Auto alocate memory -- Still error ***

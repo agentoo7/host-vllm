@@ -2,7 +2,7 @@ curl -X POST "http://192.168.59.54:20012/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer lvm-apikey" \
 	--data '{
-		"model": "codgician/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GPTQ-int4",
+		"model": "QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ",
 		"messages": [
 			{
 				"role": "user",
@@ -28,7 +28,7 @@ curl -X POST "http://localhost:20012/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer lvm-apikey" \
 	--data '{
-		"model": "codgician/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GPTQ-int4",
+		"model": "QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ",
 		"messages": [
 			{
 				"role": "user",
@@ -47,3 +47,52 @@ curl -X POST "http://localhost:20012/v1/chat/completions" \
 			}
 		]
 	}'
+
+
+# Tool calling test
+curl -X POST "http://localhost:20012/v1/chat/completions" \
+	-H "Content-Type: application/json" \
+	-H "Authorization: Bearer lvm-apikey" \
+	--data '{
+		"model": "QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ",
+		"messages": [
+			{
+				"role": "user",
+				"content": "What is the weather in San Francisco today?"
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"function": {
+					"name": "get_weather",
+					"description": "Get the current weather in a given location",
+					"parameters": {
+						"type": "object",
+						"properties": {
+							"location": {
+								"type": "string",
+								"description": "The city and state, e.g. San Francisco, CA"
+							},
+							"unit": {
+								"type": "string",
+								"enum": ["celsius", "fahrenheit"],
+								"description": "The temperature unit"
+							}
+						},
+						"required": ["location"]
+					}
+				}
+			}
+		],
+		"tool_choice": "auto"
+	}'
+
+
+# Using with Claude Code
+export ANTHROPIC_BASE_URL="http://192.168.59.54:20012"
+export ANTHROPIC_API_KEY="dummy"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ"
+claude
