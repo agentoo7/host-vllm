@@ -28,4 +28,12 @@ services:
     ipc: "host"
 
     entrypoint: vllm
-    command: serve --task auto "BAAI/bge-reranker-v2-m3" --dtype auto --port 6000 --tensor-parallel-size 2 --gpu-memory-utilization=${gpu_memory_utilization} --max-num-batched-tokens 8194  --max_num_seqs 2 --api-key re-ranking-apikey
+    command: >
+      serve "BAAI/bge-reranker-v2-m3"
+      --port 6000 
+      --task auto  
+      --dtype auto 
+      --tensor-parallel-size 2 
+      --max-num-batched-tokens 8194 
+      --max_num_seqs 2 
+      --api-key re-ranking-apikey

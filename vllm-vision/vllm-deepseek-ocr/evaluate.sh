@@ -1,0 +1,2 @@
+export OPANAI_API_KEY=chat-apikey
+lm_eval --model local-completions   --tasks hellaswag   --output_path ./results   --log_samples   --model_args model=openai/gpt-oss-20b,base_url=http://localhost:20010/v1/completions,num_concurrent=8,max_retries=3,timeout=3000,seed=1234,temperature=0

@@ -1,0 +1,34 @@
+services:
+  chat-model:
+    image: vllm/vllm-openai:latest
+    shm_size: '64gb'
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0', '1' ]
+              capabilities: [ gpu ]
+    env_file:
+      - ../../.env
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      - CUDA_VISIBLE_DEVICES=0,1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - VLLM_ATTENTION_BACKEND=DUAL_CHUNK_FLASH_ATTN
+      - VLLM_USE_V1=0
+      - VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer chat-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${port}:6000"
+    volumes:
+      - "~/.cache/huggingface:/root/.cache/huggingface"
+    ipc: "host"
+
+    entrypoint: vllm
+    command: serve "Qwen/Qwen3-30B-A3B-Thinking-2507" --tensor-parallel-size 2 --max-model-len 1010000 --enable-chunked-prefill --max-num-batched-tokens 131072 --enforce-eager --max-num-seqs 1 --gpu-memory-utilization 0.95 --enable-reasoning --reasoning-parser deepseek_r1

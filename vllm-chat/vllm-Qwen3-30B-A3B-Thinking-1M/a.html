@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Tank – Three.js (global script)</title>
+<style>
+  body{margin:0;overflow:hidden;background:#111;color:#fff;font-family:sans-serif}
+  #hud{position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.5);
+       padding:8px 12px;border-radius:4px;font-size:14px;pointer-events:none;}
+</style>
+</head>
+<body>
+<div id="hud">
+  W/A/S/D – Move | ←/→ – Turret | SPACE – Fire | R – Reset
+</div>
+
+<!-- Load Three.js *as a normal script* (creates global variable THREE) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.165/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.165/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+/* --------------------------------------------------------------
+   EVERYTHING BELOW IS *plain* JavaScript – no import statements
+   -------------------------------------------------------------- */
+const {Scene, PerspectiveCamera, WebGLRenderer, Color,
+       HemisphereLight, DirectionalLight, PlaneGeometry,
+       MeshStandardMaterial, Mesh, BoxGeometry,
+       CylinderGeometry, SphereGeometry, Vector3} = THREE;
+
+/* ---- BASIC SETUP ------------------------------------------------ */
+const scene = new Scene();
+scene.background = new Color(0x202020);
+
+const camera = new PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 8, 12);
+camera.lookAt(0, 0, 0);
+
+const renderer = new WebGLRenderer({antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* ---- ORBIT CONTROLS (only for debugging) ----------------------- */
+const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+orbit.enablePan   = false;
+orbit.enableZoom  = false;
+orbit.target.set(0, 1, 0);
+orbit.update();
+
+/* ---- LIGHTS ----------------------------------------------------- */
+scene.add(new HemisphereLight(0xffffff, 0x444444, 0.8));
+const dir = new DirectionalLight(0xffffff, 0.8);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+/* ---- GROUND ----------------------------------------------------- */
+const ground = new Mesh(
+  new PlaneGeometry(200, 200),
+  new MeshStandardMaterial({color: 0x556655})
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+/* ---- TANK CREATION (primitives) --------------------------------- */
+function createTank(color = 0x00ff00) {
+  const tank = new THREE.Group();
+
+  // chassis
+  const chassis = new Mesh(
+    new BoxGeometry(2, 0.6, 3),
+    new MeshStandardMaterial({color})
+  );
+  tank.add(chassis);
+
+  // turret
+  const turret = new Mesh(
+    new CylinderGeometry(0.6, 0.6, 0.5, 32),
+    new MeshStandardMaterial({color: 0x777777})
+  );
+  turret.rotation.x = Math.PI/2;
+  turret.position.y = 0.55;
+  tank.add(turret);
+  tank.turret = turret; // handy reference
+
+  // barrel
+  const barrel = new Mesh(
+    new CylinderGeometry(0.15, 0.15, 2, 16),
+    new MeshStandardMaterial({color: 0x555555})
+  );
+  barrel.rotation.z = Math.PI/2;
+  barrel.position.set(1, 0.55, 0);
+  tank.add(barrel);
+  tank.barrel = barrel;
+
+  // wheels (simple cylinders)
+  const wheelGeo = new CylinderGeometry(0.4, 0.4, 0.5, 16);
+  const wheelMat = new MeshStandardMaterial({color: 0x222222});
+  const wheelPos = [
+    [-0.9, -0.3,  1.2], [ 0.9, -0.3,  1.2],
+    [-0.9, -0.3,  0.0], [ 0.9, -0.3,  0.0],
+    [-0.9, -0.3, -1.2], [ 0.9, -0.3, -1.2],
+  ];
+  wheelPos.forEach(p => {
+    const w = new Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI/2;
+    w.position.set(p[0], p[1], p[2]);
+    tank.add(w);
+  });
+
+  tank.position.y = 0.3; // sit on the ground
+  return tank;
+}
+const playerTank = createTank(0x00ff00);
+scene.add(playerTank);
+
+/* ---- INPUT ------------------------------------------------------ */
+const key = {};
+window.addEventListener('keydown', e => key[e.code] = true);
+window.addEventListener('keyup',   e => key[e.code] = false);
+window.addEventListener('keydown', e => {
+  if (e.code === 'KeyR') resetGame();
+});
+
+/* ---- BULLETS ---------------------------------------------------- */
+const bullets = []; // {mesh, velocity:Vector3, life}
+function fireBullet() {
+  const bullet = new Mesh(
+    new SphereGeometry(0.12, 8, 8),
+    new MeshStandardMaterial({color: 0xffaa00})
+  );
+
+  // start at tip of barrel
+  const tip = new Vector3();
+  playerTank.barrel.getWorldPosition(tip);
+  bullet.position.copy(tip);
+
+  // forward direction (tank's local Z‑axis)
+  const forward = new Vector3(0, 0, 1).applyQuaternion(playerTank.quaternion);
+  const speed = 30;
+  const velocity = forward.multiplyScalar(speed);
+
+  scene.add(bullet);
+  bullets.push({mesh: bullet, velocity, life: 2});
+}
+
+/* ---- GAME LOGIC ------------------------------------------------- */
+function resetGame() {
+  playerTank.position.set(0, 0.3, 0);
+  playerTank.rotation.y = 0;
+  bullets.forEach(b => scene.remove(b.mesh));
+  bullets.length = 0;
+}
+
+const clock = new THREE.Clock();
+function animate() {
+  const dt = clock.getDelta();
+
+  // ---- tank movement ----
+  const move = 6;        // units / s
+  const turn = Math.PI;  // rad / s
+  if (key['KeyW']) playerTank.translateZ(-move * dt);
+  if (key['KeyS']) playerTank.translateZ( move * dt);
+  if (key['KeyA']) playerTank.rotation.y += turn * dt;
+  if (key['KeyD']) playerTank.rotation.y -= turn * dt;
+  playerTank.position.y = 0.3; // keep on ground
+
+  // ---- turret rotation (←/→) ----
+  const tTurn = Math.PI / 2 * dt;
+  if (key['ArrowLeft'])  playerTank.turret.rotation.y += tTurn;
+  if (key['ArrowRight']) playerTank.turret.rotation.y -= tTurn;
+
+  // ---- fire (space) – simple rate limit ----
+  if (key['Space']) {
+    const now = performance.now();
+    if (!playerTank.lastShot || now - playerTank.lastShot > 200) {
+      fireBullet();
+      playerTank.lastShot = now;
+    }
+  }
+
+  // ---- update bullets ----
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.mesh.position.addScaledVector(b.velocity, dt);
+    b.life -= dt;
+    if (b.mesh.position.y < 0) b.life = 0; // hit ground
+    if (b.life <= 0) {
+      scene.remove(b.mesh);
+      bullets.splice(i, 1);
+    }
+  }
+
+  // ---- simple chase camera ----
+  const offset = new Vector3(0, 6, 10).applyQuaternion(playerTank.quaternion);
+  const targetPos = playerTank.position.clone().add(offset);
+  camera.position.lerp(targetPos, 0.1);
+  camera.lookAt(playerTank.position);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ---- resize handling -------------------------------------------- */
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
+```
+
+**What changed?**  
+
+* The two `<script src="…">` tags load Three.js **as a classic script**, not as a module.  
+* Inside the code we simply use the global `THREE` object – no `import` statements at all.  
+* This works **anywhere**, even if you open the file directly (`file:///…`) without a local server.
+
+---
+
+## 🟢 Option 2 – **Single‑file HTML, stay inside a module, import from CDN**
+
+If you **prefer** the modern `import` syntax (so you can keep the destructuring style, use other 
+ES‑modules, etc.), just make sure the specifier is a **full URL**:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Tank – Three.js (module import)</title>
+<style>
+  body{margin:0;overflow:hidden;background:#111;color:#fff;font-family:sans-serif}
+  #hud{position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.5);
+       padding:8px 12px;border-radius:4px;font-size:14px;pointer-events:none;}
+</style>
+</head>
+<body>
+<div id="hud">
+  W/A/S/D – Move | ←/→ – Turret | SPACE – Fire | R – Reset
+</div>
+
+<script type="module">
+/* --------------------------------------------------------------
+   NOTE the *full* URL – this is what the browser can resolve.
+   -------------------------------------------------------------- */
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165/build/three.module.js';
+import {OrbitControls} from 
+'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/controls/OrbitControls.js';
+
+/* ----------------------------------------------------------------
+   The rest of the code is **exactly the same** as in the previous
+   example, only now we can keep the nice `import` syntax.
+   ---------------------------------------------------------------- */
+const {Scene, PerspectiveCamera, WebGLRenderer, Color,
+       HemisphereLight, DirectionalLight, PlaneGeometry,
+       MeshStandardMaterial, Mesh, BoxGeometry,
+       CylinderGeometry, SphereGeometry, Vector3} = THREE;
+
+/* ---- BASIC SETUP ------------------------------------------------ */
+const scene = new Scene();
+scene.background = new Color(0x202020);
+
+const camera = new PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 8, 12);
+camera.lookAt(0, 0, 0);
+
+const renderer = new WebGLRenderer({antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* ---- ORBIT CONTROLS (debug only) -------------------------------- */
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enablePan   = false;
+orbit.enableZoom  = false;
+orbit.target.set(0, 1, 0);
+orbit.update();
+
+/* ---- LIGHTS ----------------------------------------------------- */
+scene.add(new HemisphereLight(0xffffff, 0x444444, 0.8));
+const dir = new DirectionalLight(0xffffff, 0.8);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+/* ---- GROUND ----------------------------------------------------- */
+const ground = new Mesh(
+  new PlaneGeometry(200, 200),
+  new MeshStandardMaterial({color: 0x556655})
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+/* ---- TANK ------------------------------------------------------- */
+function createTank(color = 0x00ff00) {
+  const tank = new THREE.Group();
+
+  const chassis = new Mesh(
+    new BoxGeometry(2, 0.6, 3),
+    new MeshStandardMaterial({color})
+  );
+  tank.add(chassis);
+
+  const turret = new Mesh(
+    new CylinderGeometry(0.6, 0.6, 0.5, 32),
+    new MeshStandardMaterial({color: 0x777777})
+  );
+  turret.rotation.x = Math.PI/2;
+  turret.position.y = 0.55;
+  tank.add(turret);
+  tank.turret = turret;
+
+  const barrel = new Mesh(
+    new CylinderGeometry(0.15, 0.15, 2, 16),
+    new MeshStandardMaterial({color: 0x555555})
+  );
+  barrel.rotation.z = Math.PI/2;
+  barrel.position.set(1, 0.55, 0);
+  tank.add(barrel);
+  tank.barrel = barrel;
+
+  const wheelGeo = new CylinderGeometry(0.4, 0.4, 0.5, 16);
+  const wheelMat = new MeshStandardMaterial({color: 0x222222});
+  const wheelPos = [
+    [-0.9, -0.3,  1.2], [ 0.9, -0.3,  1.2],
+    [-0.9, -0.3,  0.0], [ 0.9, -0.3,  0.0],
+    [-0.9, -0.3, -1.2], [ 0.9, -0.3, -1.2],
+  ];
+  wheelPos.forEach(p => {
+    const w = new Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI/2;
+    w.position.set(p[0], p[1], p[2]);
+    tank.add(w);
+  });
+
+  tank.position.y = 0.3;
+  return tank;
+}
+const playerTank = createTank(0x00ff00);
+scene.add(playerTank);
+
+/* ---- INPUT ------------------------------------------------------ */
+const key = {};
+window.addEventListener('keydown', e => key[e.code] = true);
+window.addEventListener('keyup',   e => key[e.code] = false);
+window.addEventListener('keydown', e => {
+  if (e.code === 'KeyR') resetGame();
+});
+
+/* ---- BULLETS ---------------------------------------------------- */
+const bullets = [];
+function fireBullet() {
+  const bullet = new Mesh(
+    new SphereGeometry(0.12, 8, 8),
+    new MeshStandardMaterial({color: 0xffaa00})
+  );
+
+  const tip = new Vector3();
+  playerTank.barrel.getWorldPosition(tip);
+  bullet.position.copy(tip);
+
+  const forward = new Vector3(0, 0, 1).applyQuaternion(playerTank.quaternion);
+  const speed = 30;
+  const velocity = forward.multiplyScalar(speed);
+
+  scene.add(bullet);
+  bullets.push({mesh: bullet, velocity, life: 2});
+}
+
+/* ---- GAME LOGIC ------------------------------------------------- */
+function resetGame() {
+  playerTank.position.set(0, 0.3, 0);
+  playerTank.rotation.y = 0;
+  bullets.forEach(b => scene.remove(b.mesh));
+  bullets.length = 0;
+}
+const clock = new THREE.Clock();
+function animate() {
+  const dt = clock.getDelta();
+
+  const move = 6, turn = Math.PI;
+  if (key['KeyW']) playerTank.translateZ(-move * dt);
+  if (key['KeyS']) playerTank.translateZ( move * dt);
+  if (key['KeyA']) playerTank.rotation.y += turn * dt;
+  if (key['KeyD']) playerTank.rotation.y -= turn * dt;
+  playerTank.position.y = 0.3;
+
+  const tTurn = Math.PI / 2 * dt;
+  if (key['ArrowLeft'])  playerTank.turret.rotation.y += tTurn;
+  if (key['ArrowRight']) playerTank.turret.rotation.y -= tTurn;
+
+  if (key['Space']) {
+    const now = performance.now();
+    if (!playerTank.lastShot || now - playerTank.lastShot > 200) {
+      fireBullet();
+      playerTank.lastShot = now;
+    }
+  }
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.mesh.position.addScaledVector(b.velocity, dt);
+    b.life -= dt;
+    if (b.mesh.position.y < 0) b.life = 0;
+    if (b.life <= 0) {
+      scene.remove(b.mesh);
+      bullets.splice(i, 1);
+    }
+  }
+
+  // simple chase camera
+  const offset = new Vector3(0, 6, 10).applyQuaternion(playerTank.quaternion);
+  const desired = playerTank.position.clone().add(offset);
+  camera.position.lerp(desired, 0.1);
+  camera.lookAt(playerTank.position);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ---- RESIZE ----------------------------------------------------- */
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+services:
+  qwen-hosting:
+    image: vllm/vllm-openai:nightly
+    container_name: Qwen3.5-35B-A3B-Claude-4.6-Opus
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model "QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ"
+      --tokenizer Qwen/Qwen3.5-27B 
+      --quantization awq_marlin 
+      --tensor-parallel-size 2 
+      --max-model-len 262144 
+      --gpu-memory-utilization 0.88 
+      --max-num-seqs 8 
+      --enable-prefix-caching 
+      --reasoning-parser qwen3 
+      --enable-auto-tool-choice 
+      --tool-call-parser qwen3_coder 
+      --trust-remote-code 
+      --port 6000
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
