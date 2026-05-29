@@ -15,10 +15,6 @@ docker compose up -d
 
 ## API Examples
 
-```bash
-curl http://192.168.59.54:20012/v1/models
-```
-
 ### Vision - Describe Image
 
 ```bash

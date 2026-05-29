@@ -1,0 +1,19 @@
+model_list:
+  - model_name: "claude-*"
+    litellm_params:
+      model: "openai/qwen27b"
+      api_base: "http://localhost:8000/v1"
+      api_key: "dummy"
+    model_info:
+      max_tokens: 200000
+      max_input_tokens: 190000
+      max_output_tokens: 10000
+
+litellm_settings:
+  drop_params: true
+  modify_params: true
+  request_timeout: 600
+  parse_tool_call_response: true    # ← thêm dòng này
+
+general_settings:
+  disable_key_check: true

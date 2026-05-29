@@ -1,11 +1,9 @@
 services:
   qwen-hosting:
-    image: vllm/vllm-openai:v0.17.1
-    runtime: nvidia  
+    image: vllm/vllm-openai:nightly
+    container_name: Qwen3.5-35B-A3B-Claude-4.6-Opus
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility 
-      - NVIDIA_DISABLE_REQUIRE=1
     ports:
       - "20012:6000"
     volumes:
@@ -39,4 +37,4 @@ services:
           devices:
             - driver: nvidia
               count: 2
-              capabilities: [gpu, compute, utility] 
+              capabilities: [gpu]

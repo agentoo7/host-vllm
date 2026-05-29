@@ -1,0 +1,13 @@
+vllm serve QuantTrio/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-AWQ \
+  --tokenizer Qwen/Qwen3.5-27B \
+  --quantization awq_marlin \
+  --tensor-parallel-size 2 \
+  --max-model-len 262144 \
+  --gpu-memory-utilization 0.88 \
+  --max-num-seqs 8 \
+  --enable-prefix-caching \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_coder \
+  --trust-remote-code \
+  --port 8000
