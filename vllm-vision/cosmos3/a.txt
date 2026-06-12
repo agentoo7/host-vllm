@@ -1,0 +1,9 @@
+CUDA_VISIBLE_DEVICES=0 \
+vllm serve nvidia/Cosmos3-Nano \
+  --hf-overrides '{"architectures": ["Cosmos3ReasonerForConditionalGeneration"]}' \
+  --tensor-parallel-size 1 \
+  --mm-encoder-tp-mode data \
+  --async-scheduling \
+  --allowed-local-media-path "$(dirname "$(pwd)")" \
+  --media-io-kwargs '{"video": {"num_frames": -1}}' \
+  --port 8000

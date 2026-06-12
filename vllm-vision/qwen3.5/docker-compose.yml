@@ -27,6 +27,7 @@ services:
       --tool-call-parser qwen3_coder 
       --trust-remote-code 
       --port 6000
+      --api-key lvm-apikey
     healthcheck:
       test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
       interval: 30s

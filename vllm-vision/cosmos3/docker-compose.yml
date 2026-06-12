@@ -1,0 +1,44 @@
+services:
+  cosmos-hosting:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cosmos3-reasoner:0.21.0
+    container_name: Cosmos3-Nano
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      # No CUDA toolkit (nvcc) in the image, so FlashInfer can't JIT-compile its
+      # sampling kernel — fall back to vLLM's native sampler instead.
+      - VLLM_USE_FLASHINFER_SAMPLER=0
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model nvidia/Cosmos3-Nano
+      --hf-overrides '{"architectures": ["Cosmos3ReasonerForConditionalGeneration"]}'
+      --tensor-parallel-size 2
+      --max-model-len 262144
+      --gpu-memory-utilization 0.90
+      --max-num-seqs 64
+      --mm-encoder-tp-mode data
+      --async-scheduling
+      --allowed-local-media-path /data
+      --media-io-kwargs '{"video": {"num_frames": -1}}'
+      --port 6000
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
