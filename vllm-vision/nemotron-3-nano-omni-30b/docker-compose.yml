@@ -1,0 +1,47 @@
+services:
+  nemotron-hosting:
+    # Shared image = vllm/vllm-openai:v0.22.1 + vllm[audio] baked in (see Dockerfile).
+    # Built once and tagged vllm-audio:0.22.1 — no per-boot pip install.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vllm-audio:0.22.1
+    container_name: Nemotron-3-Nano-Omni-30B-A3B-FP8
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8"
+      --trust-remote-code
+      --tensor-parallel-size 2
+      --max-model-len 131072
+      --media-io-kwargs '{"video": {"fps": 2, "num_frames": 256}}'
+      --video-pruning-rate 0.5
+      --limit-mm-per-prompt '{"video": 1, "image": 1, "audio": 1}'
+      --reasoning-parser nemotron_v3
+      --enable-auto-tool-choice
+      --tool-call-parser qwen3_coder
+      --kv-cache-dtype fp8
+      --allowed-local-media-path /data
+      --gpu-memory-utilization 0.85
+      --port 6000
+      --api-key lvm-apikey
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 40
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]

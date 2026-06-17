@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open-Weight LLM Comparison for a 2x NVIDIA L40 Server</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --th-bg: #f6f8fa;
+    --row-alt: #f6f8fa;
+    --note-bg: #fff8c5;
+    --note-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1 { font-size: 2rem; border-bottom: 2px solid var(--border); padding-bottom: .4rem; }
+  h2 { font-size: 1.4rem; margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+  h3 { font-size: 1.1rem; margin-top: 1.8rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  blockquote {
+    margin: 1rem 0;
+    padding: .6rem 1rem;
+    border-left: 4px solid var(--accent);
+    background: var(--th-bg);
+    color: var(--muted);
+  }
+  blockquote p { margin: .2rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+    display: block;
+    overflow-x: auto;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .5rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--th-bg); font-weight: 600; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  code {
+    background: var(--th-bg);
+    padding: .15em .4em;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9em;
+  }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+  .reco { background: var(--th-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  .reco h3 { margin-top: 0; }
+  .note { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 6px; padding: .8rem 1rem; margin: 1.5rem 0; color: #4d3800; font-size: .92rem; }
+  ul { padding-left: 1.4rem; }
+  .footer-note { color: var(--muted); font-style: italic; font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<h1>Open-Weight LLM Comparison (No Chinese Models) for a 2x NVIDIA L40 Server</h1>
+
+<blockquote>
+  <p><strong>Updated:</strong> June 12, 2026</p>
+  <p><strong>Goal:</strong> Pick a multimodal model — high benchmark or fast — that can be self-hosted on 2x L40 (96 GB VRAM).</p>
+</blockquote>
+
+<hr>
+
+<h2>1. Hardware Context</h2>
+
+<table>
+  <thead>
+    <tr><th>Spec</th><th>Value</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>GPU</td><td>2x NVIDIA L40 (48 GB GDDR6 each)</td><td>96 GB VRAM total</td></tr>
+    <tr><td>Architecture</td><td>Ada Lovelace (compute capability 8.9)</td><td><strong>Native FP8</strong> → vLLM FP8 runs well</td></tr>
+    <tr><td>FP4 / NVFP4</td><td>❌ No hardware acceleration</td><td>FP4 only on Blackwell</td></tr>
+    <tr><td>NVLink</td><td>❌ None</td><td>Tensor parallel of 2 over PCIe — fine for TP=2 inference</td></tr>
+    <tr><td>Recommended format</td><td><strong>FP8</strong> or <strong>AWQ/GPTQ 4-bit</strong></td><td>MXFP4 (gpt-oss) runs via dequant</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>2. Note: Cosmos 3 is NOT a chat LLM</h2>
+
+<p>NVIDIA Cosmos 3 (announced at GTC Taipei / COMPUTEX, May 2026) is a <strong>world foundation model for Physical AI</strong> — robotics, autonomous vehicles, video world generation — built on a Mixture-of-Transformers (omni-model) architecture:</p>
+
+<ul>
+  <li><strong>Cosmos 3 Nano</strong> — 16B (8B reasoner + 8B generator), runs on workstation-class GPUs</li>
+  <li><strong>Cosmos 3 Super</strong> — 64B (32B + 32B), targets Hopper/Blackwell GPUs</li>
+  <li><strong>Cosmos 3 Edge</strong> — coming soon, for edge inference</li>
+</ul>
+
+<p>→ If your goal is an LLM for chat / coding / agents (KMS AgentOS), <strong>skip Cosmos 3</strong>. It's only worth considering if you do video generation or physical AI.</p>
+
+<hr>
+
+<h2>3. Main Comparison Table</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th><th>Origin / License</th><th>Architecture</th><th>Multimodal</th>
+      <th>Context</th><th>VRAM (estimate)</th><th>Notable benchmarks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Gemma 4 31B</strong></td><td>Google · Apache 2.0</td><td>31B dense</td>
+      <td>Text + image + video</td><td>256K</td>
+      <td>BF16 ~62 GB (fits TP=2 nicely) · FP8 ~32 GB</td>
+      <td>AIME 2026: <strong>89.2%</strong> · LiveCodeBench v6: <strong>80.0%</strong> · τ2-bench Retail: <strong>86.4%</strong> · LMArena text ~<strong>1452</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Gemma 4 26B A4B</strong></td><td>Google · Apache 2.0</td><td>MoE 26B total / <strong>4B active</strong></td>
+      <td>Text + image + video</td><td>256K</td>
+      <td>BF16 ~52 GB · FP8 ~26 GB</td>
+      <td>LMArena ~<strong>1441</strong> with only 4B active → very high speed</td>
+    </tr>
+    <tr>
+      <td><strong>Gemma 4 12B</strong></td><td>Google · Apache 2.0</td><td>12B dense</td>
+      <td>Text + image + video + <strong>audio</strong></td><td>128K</td>
+      <td>BF16 ~24 GB (1 GPU is plenty) · 4-bit ~6.7 GB</td>
+      <td>MMLU Pro ~<strong>77.2%</strong> · GPQA Diamond ~<strong>78.8%</strong> · beats Gemma 3 27B</td>
+    </tr>
+    <tr>
+      <td><strong>gpt-oss-120b</strong></td><td>OpenAI (USA) · Apache 2.0</td><td>MoE 117B / 5.1B active</td>
+      <td>❌ Text-only</td><td>128K</td>
+      <td><strong>MXFP4 ~63 GB</strong> → runs well on TP=2</td>
+      <td>Nearly on par with <strong>o4-mini</strong> for reasoning (AIME, MMLU, TauBench, HealthBench)</td>
+    </tr>
+    <tr>
+      <td><strong>Nemotron 3 Nano Omni 30B-A3B</strong></td><td>NVIDIA (USA) · open</td><td>MoE Mamba-Transformer · 3B active</td>
+      <td><strong>Audio + video + image + text + docs</strong></td><td>256K</td>
+      <td>BF16 ~62 GB · 8-bit ~36 GB · 4-bit ~25 GB</td>
+      <td>Strongest omni model in its size class · beats Qwen3-Omni-30B on every benchmark</td>
+    </tr>
+    <tr>
+      <td><strong>Nemotron 3 Super 120B-A12B</strong></td><td>NVIDIA · open</td><td>MoE 120B / 12B active</td>
+      <td>Text</td><td><strong>1M</strong></td>
+      <td>FP16 ~240 GB ❌ · <strong>4-bit ~60–80 GB</strong> (only the 4-bit build fits)</td>
+      <td>Leads its size class: <strong>AIME 2025, Terminal Bench, SWE-Bench Verified</strong> · strong RULER 1M</td>
+    </tr>
+    <tr>
+      <td><strong>Mistral Small 4 (119B-A6.5B)</strong></td><td>Mistral (France) · Apache 2.0</td><td>MoE 128 experts · 6.5B active · Pixtral vision</td>
+      <td>Text + image</td><td>256K</td>
+      <td>FP8 ~111 GB ❌ · <strong>Q4_K_M ~72.6 GB</strong> (llama.cpp, tight)</td>
+      <td>MMLU-Pro <strong>78.0</strong> · GPQA Diamond <strong>71.2</strong> · beats gpt-oss-120b on LiveCodeBench with ~20% shorter output</td>
+    </tr>
+    <tr>
+      <td><strong>DiffusionGemma 26B</strong></td><td>Google · Apache 2.0</td><td>Diffusion built on Gemma 4 26B A4B (3.8B active)</td>
+      <td>Text + image + video (input)</td><td>256K</td>
+      <td>BF16 ~52 GB · quantized ~18 GB</td>
+      <td>Up to <strong>4x</strong> the speed of autoregressive · 1000+ tok/s on H100 · <strong>but lower quality than Gemma 4 26B on every benchmark</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Excluded from the list (reasons)</h3>
+
+<table>
+  <thead>
+    <tr><th>Model</th><th>Reason for exclusion</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Qwen 3.5/3.6/3.7, DeepSeek V4/R1, GLM 5.x, Kimi K2.x, MiMo</td><td>Chinese models (per requirement)</td></tr>
+    <tr><td>Llama 4 Scout/Maverick (Meta)</td><td>Clearly surpassed in benchmarks by Gemma 4; Llama Community license (not Apache 2.0); Maverick 400B doesn't fit in 96 GB</td></tr>
+    <tr><td>Mistral Large 3 (675B MoE)</td><td>Too large for 96 GB</td></tr>
+    <tr><td>Nemotron 3 Ultra (550B)</td><td>Too large for 96 GB</td></tr>
+    <tr><td>Cosmos 3 Super 64B</td><td>Not a chat LLM; targets Hopper/Blackwell</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>4. Recommendations by Need</h2>
+
+<div class="reco">
+  <h3>🏆 Best all-rounder → <strong>Gemma 4 31B (FP8, TP=2)</strong></h3>
+  <ul>
+    <li>Highest quality among models that fit snugly in 96 GB, multimodal, 256K context</li>
+    <li>FP8 is only ~32 GB of weights → ~60 GB left for KV cache → serve long context + many concurrent requests</li>
+    <li>Along with gpt-oss, one of the two US-origin open-weight options with <strong>no license friction</strong> — Gemma 4 wins on general capability, gpt-oss wins on math reasoning</li>
+  </ul>
+</div>
+
+<div class="reco">
+  <h3>⚡ Speed + quality (multi-step agent workloads, AgentOS-style) → <strong>Gemma 4 26B A4B (FP8)</strong></h3>
+  <ul>
+    <li>Only 4B active → far higher throughput on the L40 than the 31B dense model</li>
+    <li>Arena score only ~11 points behind the 31B → a worthwhile trade for lower latency</li>
+  </ul>
+</div>
+
+<div class="reco">
+  <h3>🧠 Strongest text-only reasoning / agentic → <strong>gpt-oss-120b (MXFP4)</strong></h3>
+  <ul>
+    <li>~63 GB, runs comfortably on TP=2; excellent tool use and math</li>
+    <li>Downside: no vision; at extreme context lengths (1M) it falls well short of Nemotron 3 Super</li>
+  </ul>
+</div>
+
+<div class="reco">
+  <h3>🎤 Genuinely need audio + video input → <strong>Nemotron 3 Nano Omni 30B-A3B (FP8/8-bit)</strong></h3>
+  <ul>
+    <li>Light, fast (3B active), the most fully multimodal option in the table</li>
+  </ul>
+</div>
+
+<div class="reco">
+  <h3>📚 Need 1M context (large codebases, brownfield) → <strong>Nemotron 3 Super 120B (4-bit)</strong></h3>
+  <ul>
+    <li>On 96 GB you're forced to use the 4-bit build (GGUF/AWQ) — accept a slight quality trade-off and more complex tooling</li>
+  </ul>
+</div>
+
+<div class="reco">
+  <h3>🚀 Absolute speed (autocomplete, inline editing) → <strong>DiffusionGemma 26B</strong></h3>
+  <ul>
+    <li>Experimental, lower quality than standard Gemma 4 — use only for speed-critical use cases</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>5. Suggested Combos for 2x L40</h2>
+
+<p><strong>Option A — Swap back and forth (vLLM):</strong></p>
+<ul>
+  <li><strong>Gemma 4 26B A4B (FP8)</strong> as the daily workhorse</li>
+  <li><strong>gpt-oss-120b (MXFP4)</strong> as the reasoner for hard tasks</li>
+</ul>
+
+<p><strong>Option B — Run 2 models simultaneously:</strong></p>
+<ul>
+  <li>GPU 0: <strong>Gemma 4 12B</strong> (multimodal, includes audio) — ~24 GB BF16</li>
+  <li>GPU 1: <strong>gpt-oss-20b</strong> or <strong>Nemotron 3 Nano</strong> — text reasoning</li>
+</ul>
+
+<p><strong>Option C — A single model, maximum quality:</strong></p>
+<ul>
+  <li><strong>Gemma 4 31B FP8, TP=2</strong> — handles everything, plenty of spare KV cache</li>
+</ul>
+
+<hr>
+
+<h2>6. References</h2>
+
+<ul>
+  <li>Gemma 4 (Hugging Face official blog): <a href="https://huggingface.co/blog/gemma4">https://huggingface.co/blog/gemma4</a></li>
+  <li>Gemma 4 detailed benchmarks: <a href="https://dev.to/aniruddhaadak/gemma-4-complete-guide-2026-architecture-benchmarks-deployment-3en9">https://dev.to/aniruddhaadak/gemma-4-complete-guide-2026-architecture-benchmarks-deployment-3en9</a></li>
+  <li>Gemma 4 12B specs: <a href="https://lushbinary.com/blog/gemma-4-12b-developer-guide-benchmarks-multimodal/">https://lushbinary.com/blog/gemma-4-12b-developer-guide-benchmarks-multimodal/</a></li>
+  <li>DiffusionGemma (Google official): <a href="https://blog.google/innovation-and-ai/technology/developers-tools/diffusion-gemma-faster-text-generation/">https://blog.google/innovation-and-ai/technology/developers-tools/diffusion-gemma-faster-text-generation/</a></li>
+  <li>DiffusionGemma developer guide: <a href="https://developers.googleblog.com/diffusiongemma-the-developer-guide/">https://developers.googleblog.com/diffusiongemma-the-developer-guide/</a></li>
+  <li>gpt-oss (OpenAI official): <a href="https://openai.com/index/introducing-gpt-oss/">https://openai.com/index/introducing-gpt-oss/</a></li>
+  <li>Nemotron 3 Super (Unsloth): <a href="https://unsloth.ai/docs/models/nemotron-3/nemotron-3-super">https://unsloth.ai/docs/models/nemotron-3/nemotron-3-super</a></li>
+  <li>Nemotron 3 Nano Omni (Unsloth): <a href="https://unsloth.ai/docs/models/nemotron-3-nano-omni">https://unsloth.ai/docs/models/nemotron-3-nano-omni</a></li>
+  <li>Nemotron 3 Nano vLLM cookbook (NVIDIA): <a href="https://github.com/NVIDIA-NeMo/Nemotron">https://github.com/NVIDIA-NeMo/Nemotron</a></li>
+  <li>Mistral Small 4 (Mistral official): <a href="https://mistral.ai/news/mistral-small-4/">https://mistral.ai/news/mistral-small-4/</a></li>
+  <li>Mistral Small 4 VRAM: <a href="https://willitrunai.com/blog/mistral-small-4-vram-requirements">https://willitrunai.com/blog/mistral-small-4-vram-requirements</a></li>
+  <li>Cosmos 3 (NVIDIA newsroom): <a href="https://nvidianews.nvidia.com/news/nvidia-launches-cosmos-3-the-open-frontier-foundation-model-for-physical-ai">https://nvidianews.nvidia.com/news/nvidia-launches-cosmos-3-the-open-frontier-foundation-model-for-physical-ai</a></li>
+  <li>Cosmos 3 (Hugging Face): <a href="https://huggingface.co/blog/nvidia/cosmos-3-for-physical-ai">https://huggingface.co/blog/nvidia/cosmos-3-for-physical-ai</a></li>
+</ul>
+
+<hr>
+
+<p class="footer-note">Note: VRAM figures are weights-only estimates; you must add KV cache + runtime overhead depending on context length and batch size. Benchmarks are taken from official vendor announcements or community reports as of June 2026 — re-verify against the model card before deploying to production.</p>
+
+</body>
+</html>

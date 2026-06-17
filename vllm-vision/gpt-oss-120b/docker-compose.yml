@@ -1,0 +1,41 @@
+services:
+  gptoss-hosting:
+    image: vllm/vllm-openai:v0.22.1   # shared pinned version across all vLLM models
+    container_name: gpt-oss-120b
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      # Ada (sm89) has no native MXFP4 — force the Triton attention path + arch list
+      # so the software dequant kernels build correctly.
+      - VLLM_ATTENTION_BACKEND=TRITON_ATTN_VLLM_V1
+      - TORCH_CUDA_ARCH_LIST=8.9
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model "openai/gpt-oss-120b"
+      --tensor-parallel-size 2
+      --max-model-len 32768
+      --gpu-memory-utilization 0.92
+      --no-enable-prefix-caching
+      --enable-auto-tool-choice
+      --tool-call-parser openai
+      --reasoning-parser openai
+      --port 6000
+      --api-key lvm-apikey
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 40
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]

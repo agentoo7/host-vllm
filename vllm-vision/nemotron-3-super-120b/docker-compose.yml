@@ -1,0 +1,42 @@
+services:
+  nemotron-super-hosting:
+    # vLLM cannot serve this model's GGUF; llama.cpp's server is OpenAI-compatible and
+    # is the reliable path for the only 4-bit quant that fits 96 GB on 2x L40.
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: Nemotron-3-Super-120B-A12B-GGUF
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      # llama.cpp downloads -hf weights here (not the HF cache) — persist them across restarts.
+      - ~/.cache/llama.cpp:/root/.cache/llama.cpp
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    # -hf pulls the UD-IQ4_XS shard set (~64.5 GB) and splits it across both GPUs.
+    command: >
+      -hf unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF:UD-IQ4_XS
+      --tensor-split 1,1
+      -ngl 999
+      --ctx-size 131072
+      --temp 1.0
+      --top-p 0.95
+      --special
+      --host 0.0.0.0
+      --port 6000
+      --api-key lvm-apikey
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 60
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]

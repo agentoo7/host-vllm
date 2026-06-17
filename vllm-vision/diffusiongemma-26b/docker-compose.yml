@@ -1,0 +1,40 @@
+services:
+  diffusiongemma-hosting:
+    # Stock vLLM cannot load a diffusion LLM — use the diffusion-enabled gemma build.
+    image: vllm/vllm-openai:gemma
+    container_name: DiffusionGemma-26B-A4B-it
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model "google/diffusiongemma-26B-A4B-it"
+      --tensor-parallel-size 2
+      --max-num-seqs 4
+      --max-model-len 262144
+      --gpu-memory-utilization 0.85
+      --generation-config vllm
+      --hf-overrides '{"diffusion_sampler": "entropy_bound", "diffusion_entropy_bound": 0.1}'
+      --diffusion-config '{"canvas_length": 256}'
+      --limit-mm-per-prompt '{"image": 4}'
+      --allowed-local-media-path /data
+      --port 6000
+      --api-key lvm-apikey
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 40
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]

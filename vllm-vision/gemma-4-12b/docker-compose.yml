@@ -1,0 +1,46 @@
+services:
+  gemma-hosting:
+    # Special image: vllm/vllm-openai:gemma4-unified (native encoder-free 12B support,
+    # not in any stable release) + audio libs baked in (see Dockerfile).
+    # Built once and tagged vllm-gemma4-unified:audio — no per-boot pip install.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vllm-gemma4-unified:audio
+    container_name: Gemma-4-12B-it
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "20012:6000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - "./data:/data"
+    ipc: "host"
+    shm_size: '64gb'
+    command: >
+      --model "google/gemma-4-12B-it"
+      --tensor-parallel-size 1
+      --max-model-len 131072
+      --gpu-memory-utilization 0.90
+      --enable-auto-tool-choice
+      --reasoning-parser gemma4
+      --tool-call-parser gemma4
+      --chat-template examples/tool_chat_template_gemma4.jinja
+      --limit-mm-per-prompt '{"image": 4, "audio": 1, "video": 1}'
+      --media-io-kwargs '{"video": {"num_frames": 32}}'
+      --allowed-local-media-path /data
+      --port 6000
+      --api-key lvm-apikey
+    healthcheck:
+      test: [ "CMD", "curl", "-H", "Authorization: Bearer lvm-apikey", "-f", "http://0.0.0.0:6000/v1/models" ]
+      interval: 30s
+      timeout: 5s
+      retries: 40
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
